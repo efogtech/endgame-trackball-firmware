@@ -39,3 +39,6 @@
 	path = zmk-trigger-on-boot
 	url = git@github.com:efogdev/zmk-trigger-on-boot.git
 	branch = main
+[submodule "zmk-behavior-follower"]
+	path = zmk-behavior-follower
+	url = git@github.com:efogdev/zmk-behavior-follower.git
