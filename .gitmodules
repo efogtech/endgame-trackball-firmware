@@ -42,3 +42,6 @@
 [submodule "zmk-behavior-follower"]
 	path = zmk-behavior-follower
 	url = git@github.com:efogdev/zmk-behavior-follower.git
+[submodule "zmk-paw3395-driver"]
+	path = zmk-paw3395-driver
+	url = git@github.com:efogdev/zmk-paw3395-driver.git
