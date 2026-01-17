@@ -42,3 +42,12 @@
 [submodule "zmk-behavior-follower"]
 	path = zmk-behavior-follower
 	url = git@github.com:efogdev/zmk-behavior-follower.git
+[submodule "zmk-acceleration-curves"]
+	path = zmk-acceleration-curves
+	url = git@github.com:efogdev/zmk-acceleration-curves.git
+[submodule "zmk-keymap-shell"]
+	path = zmk-keymap-shell
+	url = git@github.com:efogdev/zmk-keymap-shell.git
+[submodule "zmk-paw3395-driver"]
+	path = zmk-paw3395-driver
+	url = git@github.com:efogdev/zmk-paw3395-driver.git
