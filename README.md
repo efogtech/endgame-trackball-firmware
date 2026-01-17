@@ -2,8 +2,9 @@
 
 ### Prerequisites
 1. Git
-2. Zephyr SDK
-3. West
+2. Protobuf
+3. Zephyr SDK
+4. West
 
 ### Building
 
