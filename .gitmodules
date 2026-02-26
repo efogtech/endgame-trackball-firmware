@@ -51,3 +51,6 @@
 [submodule "zmk-paw3395-driver"]
 	path = zmk-paw3395-driver
 	url = git@github.com:efogdev/zmk-paw3395-driver.git
+[submodule "zmk-input-processor-rotate-plane"]
+	path = zmk-input-processor-rotate-plane
+	url = git@github.com:efogdev/zmk-input-processor-rotate-plane.git
