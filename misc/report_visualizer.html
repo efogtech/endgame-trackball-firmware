@@ -1,0 +1,746 @@
+<!-- CAUTION: this is vibe-coded -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            background-color: white; /* Ensure the iframe has a white background */
+        }
+
+
+    </style>
+</head>
+<body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binary Size Report Visualizer</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: monospace;
+            background: #1a1a2e;
+            color: #eee;
+        }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        #toolbar {
+            padding: 8px 14px;
+            background: #16213e;
+            border-bottom: 1px solid #0f3460;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        #toolbar h1 {
+            font-size: 13px;
+            color: #e94560;
+            flex-shrink: 0;
+        }
+
+        #toolbar input {
+            flex: 1;
+            min-width: 180px;
+            padding: 5px 9px;
+            background: #0f3460;
+            border: 1px solid #e94560;
+            color: #eee;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        #breadcrumb {
+            padding: 5px 14px;
+            background: #0f3460;
+            font-size: 12px;
+            color: #aaa;
+            min-height: 26px;
+            white-space: nowrap;
+            overflow-x: auto;
+        }
+
+        #breadcrumb span {
+            cursor: pointer;
+            color: #e94560;
+        }
+
+        #breadcrumb span:hover {
+            text-decoration: underline;
+        }
+
+        #main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        #chart {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #111;
+        }
+
+        #sidebar {
+            width: 240px;
+            background: #16213e;
+            border-left: 1px solid #0f3460;
+            padding: 10px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+
+        #sidebar h2 {
+            font-size: 12px;
+            color: #e94560;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #0f3460;
+            padding-bottom: 5px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            gap: 6px;
+        }
+
+        .info-label {
+            color: #aaa;
+            flex-shrink: 0;
+        }
+
+        .info-value {
+            color: #eee;
+            font-weight: bold;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-align: right;
+        }
+
+        .child-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            border-bottom: 1px solid #0f3460;
+            cursor: pointer;
+            gap: 4px;
+        }
+
+        .child-item:hover {
+            color: #e94560;
+        }
+
+        .child-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #tooltip {
+            position: fixed;
+            background: rgba(15, 20, 40, 0.97);
+            border: 1px solid #e94560;
+            padding: 8px 11px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            display: none;
+            z-index: 1000;
+            max-width: 360px;
+            word-break: break-word;
+            line-height: 1.6;
+        }
+
+        #paste-overlay {
+            position: fixed;
+            inset: 0;
+            background: #1a1a2e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        #paste-overlay h2 {
+            color: #e94560;
+            font-size: 17px;
+        }
+
+        #paste-overlay p {
+            color: #aaa;
+            font-size: 12px;
+            max-width: 480px;
+            text-align: center;
+        }
+
+        #paste-area {
+            width: 580px;
+            height: 280px;
+            background: #0f3460;
+            border: 2px solid #e94560;
+            color: #eee;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 9px;
+            border-radius: 4px;
+            resize: vertical;
+        }
+
+        #parse-btn {
+            padding: 9px 26px;
+            background: #e94560;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            font-family: monospace;
+        }
+
+        #parse-btn:hover {
+            background: #c73652;
+        }
+
+        #error-msg {
+            color: #ff6b6b;
+            font-size: 12px;
+        }
+
+        svg text {
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .cell {
+            cursor: pointer;
+        }
+
+        .cell:hover > rect.bg {
+            stroke: #fff !important;
+            stroke-width: 2px !important;
+        }
+    </style>
+</head>
+<body>
+<div id="paste-overlay">
+    <h2>📦 Binary visualizer</h2>
+    <p>Paste your full binary size report (tree format with sizes and percentages)</p>
+    <textarea id="paste-area" placeholder="Paste report here…"></textarea>
+    <div id="error-msg"></div>
+    <button id="parse-btn">Visualize →</button>
+</div>
+<div id="app" style="display:none">
+    <div id="toolbar">
+        <h1>📦 Binary visualizer</h1>
+        <input type="text" id="search" placeholder="Filter symbols…"/>
+        <span id="total-size" style="font-size:11px;color:#aaa;flex-shrink:0"></span>
+        <button id="reset-btn"
+                style="padding:4px 10px;background:#e94560;border:none;color:#fff;border-radius:4px;cursor:pointer;font-size:12px">⟳ Root
+        </button>
+        <button id="back-btn"
+                style="padding:4px 10px;background:#0f3460;border:1px solid #e94560;color:#eee;border-radius:4px;cursor:pointer;font-size:12px">
+            ← Back
+        </button>
+    </div>
+    <div id="breadcrumb"></div>
+    <div id="main">
+        <div id="chart"></div>
+        <div id="sidebar">
+            <h2>Details</h2>
+            <div id="sidebar-content">
+                <div style="color:#666">Hover or click a block</div>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="tooltip"></div>
+<script>
+    // ═══════════════════════════════════════════════════════
+    // PARSE
+    // ═══════════════════════════════════════════════════════
+    function parseReport(text) {
+        const lines = text.split('\n');
+        let startIdx = 0;
+        for (let i = 0; i < lines.length; i++) {
+            if (/^={10,}/.test(lines[i].trim())) {
+                startIdx = i + 1;
+                break;
+            }
+        }
+        const root = {name: 'Root', size: 0, children: []};
+        const stack = [{node: root, depth: -1}];
+        for (let i = startIdx; i < lines.length; i++) {
+            const raw = lines[i];
+            if (!raw.trim()) continue;
+            const rm = raw.match(/^Root\s+(\d+)\s+([\d.]+)%/);
+            if (rm) {
+                root.size = parseInt(rm[1]);
+                continue;
+            }
+            const branchPos = raw.search(/[├└]/);
+            if (branchPos < 0) continue;
+            const afterBranch = raw.slice(branchPos + 4);
+            const nm = afterBranch.match(/^(.*?)\s{2,}(\d+)\s+([\d.]+)%\s*$/);
+            if (!nm) continue;
+            const name = nm[1].trim();
+            const size = parseInt(nm[2]);
+            const pct = parseFloat(nm[3]);
+            const depth = Math.floor(branchPos / 4);
+            while (stack.length > 1 && stack[stack.length - 1].depth >= depth) stack.pop();
+            const parent = stack[stack.length - 1].node;
+            const node = {name, size, pct, children: []};
+            parent.children.push(node);
+            stack.push({node, depth});
+        }
+        return root;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // SQUASH — collapses single-child interior nodes,
+    // preserving the full path in the node name.
+    // Each squashed node's name becomes the joined path of
+    // every segment that was collapsed into it, so the title
+    // bar always shows the complete path from the nearest
+    // visible parent.
+    // ═══════════════════════════════════════════════════════
+    function squash(node) {
+        // Recurse first so children are already squashed
+        node.children = node.children.map(squash);
+
+        node.children = node.children.map(child => {
+            // While the child has exactly one child that itself has children
+            // (i.e. it is a pass-through interior node), merge it downward.
+            while (child.children.length === 1 && child.children[0].children.length > 0) {
+                const only = child.children[0];
+                // Append the next segment so the name grows as a full path
+                only.name = child.name + ' / ' + only.name;
+                child = only;
+            }
+            return child;
+        });
+
+        return node;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // ID map
+    // ═══════════════════════════════════════════════════════
+    const nodeById = new Map();
+    let _nextId = 0;
+
+    function assignIds(node) {
+        node.id = _nextId++;
+        nodeById.set(node.id, node);
+        node.children.forEach(assignIds);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════════════
+    const fmt = n =>
+        n >= 1048576 ? (n / 1048576).toFixed(2) + ' MB' :
+            n >= 1024 ? (n / 1024).toFixed(1) + ' KB' : n + ' B';
+    const trunc = (s, max) => s.length > max ? s.slice(0, max - 1) + '…' : s;
+
+    let fullData = null;
+    const calcPct = s => fullData ? (s / fullData.size * 100).toFixed(2) : '?';
+
+    // ═══════════════════════════════════════════════════════
+    // RELATIVE LABEL
+    // Given a d3-hierarchy node d and the current view root,
+    // return the portion of the squashed path that lies below
+    // the current root so we never repeat context already
+    // shown in the breadcrumb.
+    // ═══════════════════════════════════════════════════════
+    function relativeLabel(d) {
+        const full = d.data.name;
+        // Nothing to strip when we are at the top
+        if (!currentNode || currentNode.name === 'Root') return full;
+        // The current root's own name (possibly squashed) is the prefix
+        const prefix = currentNode.name + ' / ';
+        if (full.startsWith(prefix)) return full.slice(prefix.length);
+        return full;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // COLOR
+    // ═══════════════════════════════════════════════════════
+    function nodeColor(d) {
+        let anc = d;
+        while (anc.depth > 1) anc = anc.parent;
+        let h = 0;
+        const s = anc.data.name;
+        for (let i = 0; i < s.length; i++) h = Math.imul(31, h) + s.charCodeAt(i) | 0;
+        const hue = Math.abs(h) % 360;
+        const lit = Math.max(14, 30 - d.depth * 3);
+        const sat = Math.max(25, 58 - d.depth * 3);
+        return `hsl(${hue},${sat}%,${lit}%)`;
+    }
+
+    function headerColor(d) {
+        let anc = d;
+        while (anc.depth > 1) anc = anc.parent;
+        let h = 0;
+        const s = anc.data.name;
+        for (let i = 0; i < s.length; i++) h = Math.imul(31, h) + s.charCodeAt(i) | 0;
+        const hue = Math.abs(h) % 360;
+        const lit = d.depth === 1 ? 38 : Math.max(20, 34 - d.depth * 3);
+        const sat = d.depth === 1 ? 70 : Math.max(30, 60 - d.depth * 4);
+        return `hsl(${hue},${sat}%,${lit}%)`;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════
+    let currentNode = null;
+    let history = [];
+    let searchTerm = '';
+
+    // ═══════════════════════════════════════════════════════
+    // RENDER
+    // ═══════════════════════════════════════════════════════
+    function renderTreemap(node) {
+        currentNode = node;
+        updateBreadcrumb();
+        updateSidebar(node);
+
+        const container = document.getElementById('chart');
+        container.innerHTML = '';
+        const W = container.clientWidth, H = container.clientHeight;
+        if (!W || !H) {
+            setTimeout(() => renderTreemap(node), 60);
+            return;
+        }
+
+        let display = node;
+        if (searchTerm) {
+            const f = filterNode(node, searchTerm);
+            if (!f) {
+                container.innerHTML = '<div style="color:#888;padding:20px">No matches</div>';
+                return;
+            }
+            display = f;
+        }
+
+        const hier = d3.hierarchy(display)
+            .sum(d => (!d.children || d.children.length === 0) ? d.size : 0)
+            .sort((a, b) => b.value - a.value);
+
+        d3.treemap()
+            .size([W, H])
+            .paddingOuter(4)
+            .paddingTop(d => {
+                if (d.depth === 0) return 4;
+                if (d.depth === 1) return 22;
+                if (d.depth === 2) return 16;
+                return 14;
+            })
+            .paddingInner(1)
+            .round(true)(hier);
+
+        const svg = d3.select('#chart').append('svg').attr('width', W).attr('height', H);
+        const allNodes = hier.descendants().filter(d => d.depth > 0);
+        const parentNodes = allNodes.filter(d => d.children && d.children.length > 0);
+        const leafNodes = allNodes.filter(d => !d.children || d.children.length === 0);
+
+        // ── Parent group cells ──────────────────────────────
+        const parentCells = svg.selectAll('g.parent-cell')
+            .data(parentNodes)
+            .enter().append('g').attr('class', 'cell parent-cell')
+            .attr('transform', d => `translate(${d.x0},${d.y0})`);
+
+        parentCells.append('rect')
+            .attr('class', 'bg')
+            .attr('width', d => Math.max(0, d.x1 - d.x0))
+            .attr('height', d => Math.max(0, d.y1 - d.y0))
+            .attr('fill', 'transparent')
+            .attr('stroke', d => headerColor(d))
+            .attr('stroke-width', d => d.depth === 1 ? 2 : 1)
+            .attr('rx', 2)
+            .on('mouseover', showTooltip)
+            .on('mousemove', moveTooltip)
+            .on('mouseout', hideTooltip)
+            .on('click', (event, d) => {
+                event.stopPropagation();
+                const real = nodeById.get(d.data.id);
+                if (!real) return;
+                history.push(currentNode);
+                renderTreemap(real);
+            });
+
+        parentCells.each(function (d) {
+            const w = d.x1 - d.x0;
+            const h = d.y1 - d.y0;
+            if (w < 8 || h < 8) return;
+
+            const barH = d.depth === 1 ? 22 : d.depth === 2 ? 16 : 14;
+            const actualBarH = Math.min(barH, h);
+            const g = d3.select(this);
+
+            g.append('rect')
+                .attr('class', 'header-bar')
+                .attr('x', 0).attr('y', 0)
+                .attr('width', w)
+                .attr('height', actualBarH)
+                .attr('fill', headerColor(d))
+                .attr('rx', 2)
+                .on('mouseover', showTooltip)
+                .on('mousemove', moveTooltip)
+                .on('mouseout', hideTooltip)
+                .on('click', (event, d) => {
+                    event.stopPropagation();
+                    const real = nodeById.get(d.data.id);
+                    if (!real) return;
+                    history.push(currentNode);
+                    renderTreemap(real);
+                });
+
+            if (w < 16) return;
+
+            const fs = d.depth === 1
+                ? Math.min(13, Math.max(9, w / 12))
+                : Math.min(11, Math.max(8, w / 14));
+
+            // ↓ Show full squashed path relative to current view root
+            const label = relativeLabel(d);
+            const maxChars = Math.max(1, Math.floor(w / (fs * 0.6)));
+
+            g.append('text')
+                .attr('x', 4)
+                .attr('y', actualBarH - 4)
+                .attr('font-size', fs)
+                .attr('font-weight', d.depth === 1 ? 'bold' : 'normal')
+                .attr('fill', '#fff')
+                .style('text-shadow', '0 1px 3px rgba(0,0,0,0.9)')
+                .text(trunc(label, maxChars));
+        });
+
+        // ── Leaf cells ──────────────────────────────────────
+        const leafCells = svg.selectAll('g.leaf-cell')
+            .data(leafNodes)
+            .enter().append('g').attr('class', 'cell leaf-cell')
+            .attr('transform', d => `translate(${d.x0},${d.y0})`);
+
+        leafCells.append('rect')
+            .attr('class', 'bg')
+            .attr('width', d => Math.max(0, d.x1 - d.x0))
+            .attr('height', d => Math.max(0, d.y1 - d.y0))
+            .attr('fill', nodeColor)
+            .attr('stroke', '#1a1a2e').attr('stroke-width', 1)
+            .on('mouseover', showTooltip)
+            .on('mousemove', moveTooltip)
+            .on('mouseout', hideTooltip)
+            .on('click', (event, d) => {
+                event.stopPropagation();
+                const real = nodeById.get(d.data.id);
+                if (!real) return;
+                updateSidebar(real);
+            });
+
+        leafCells.each(function (d) {
+            const w = d.x1 - d.x0;
+            const h = d.y1 - d.y0;
+            if (w < 22 || h < 11) return;
+
+            const g = d3.select(this);
+            const fs = Math.min(11, Math.max(8, w / 13));
+
+            // ↓ Show full squashed path relative to current view root
+            const label = relativeLabel(d);
+
+            g.append('text')
+                .attr('x', 3).attr('y', fs + 2)
+                .attr('font-size', fs).attr('fill', '#fff')
+                .style('text-shadow', '0 1px 3px rgba(0,0,0,.95)')
+                .text(trunc(label, Math.floor(w / (fs * 0.58))));
+
+            if (h > 26) {
+                g.append('text')
+                    .attr('x', 3).attr('y', fs * 2 + 4)
+                    .attr('font-size', fs - 1).attr('fill', '#bbb')
+                    .text(fmt(d.data.size));
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // FILTER
+    // ═══════════════════════════════════════════════════════
+    function filterNode(node, term) {
+        const t = term.toLowerCase();
+
+        function walk(n) {
+            if (n.name.toLowerCase().includes(t)) return n;
+            if (!n.children || !n.children.length) return null;
+            const fc = n.children.map(walk).filter(Boolean);
+            if (!fc.length) return null;
+            return {...n, children: fc};
+        }
+
+        return walk(node);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // TOOLTIP
+    // ═══════════════════════════════════════════════════════
+    function showTooltip(event, d) {
+        const el = document.getElementById('tooltip');
+        el.style.display = 'block';
+        const hasKids = d.data.children && d.data.children.length > 0;
+        // Tooltip always shows the full name for complete context
+        el.innerHTML = `
+    <div style="color:#e94560;font-weight:bold;margin-bottom:3px">${d.data.name}</div>
+    <div>Size: <b>${fmt(d.data.size)}</b> &nbsp;(${d.data.pct ?? calcPct(d.data.size)}%)</div>
+    ${hasKids ? `<div style="color:#aaa">Children: ${d.data.children.length}</div>` : ''}
+    ${hasKids ? '<div style="color:#e94560;font-size:11px;margin-top:2px">▶ click to zoom</div>' : ''}
+  `;
+        moveTooltip(event);
+    }
+
+    function moveTooltip(event) {
+        const el = document.getElementById('tooltip');
+        el.style.left = Math.min(event.clientX + 14, window.innerWidth - 370) + 'px';
+        el.style.top = Math.min(event.clientY + 14, window.innerHeight - 130) + 'px';
+    }
+
+    function hideTooltip() {
+        document.getElementById('tooltip').style.display = 'none';
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // BREADCRUMB
+    // ═══════════════════════════════════════════════════════
+    function updateBreadcrumb() {
+        const all = [...history, currentNode];
+        document.getElementById('breadcrumb').innerHTML =
+            all.map((n, i) =>
+                i < all.length - 1
+                    ? `<span onclick="jumpTo(${i})">${n.name}</span>`
+                    : `<b style="color:#eee">${n.name}</b>`
+            ).join(' › ');
+    }
+
+    window.jumpTo = function (idx) {
+        const t = history[idx];
+        history = history.slice(0, idx);
+        renderTreemap(t);
+    };
+
+    // ═══════════════════════════════════════════════════════
+    // SIDEBAR
+    // ═══════════════════════════════════════════════════════
+    function updateSidebar(node) {
+        const sorted = [...(node.children || [])].sort((a, b) => b.size - a.size);
+        let html = `
+    <div class="info-row"><span class="info-label">Name</span>
+      <span class="info-value" title="${node.name}">${node.name}</span></div>
+    <div class="info-row"><span class="info-label">Size</span>
+      <span class="info-value">${fmt(node.size)}</span></div>
+    <div class="info-row"><span class="info-label">Share</span>
+      <span class="info-value">${node.pct ?? calcPct(node.size)}%</span></div>
+    ${sorted.length ? `<div class="info-row"><span class="info-label">Children</span>
+      <span class="info-value">${sorted.length}</span></div>` : ''}
+  `;
+        if (sorted.length) {
+            html += `<div style="color:#e94560;margin:8px 0 3px;font-weight:bold;font-size:11px">Top children</div>`;
+            sorted.slice(0, 30).forEach(c => {
+                const drill = c.children && c.children.length > 0;
+                html += `<div class="child-item" onclick="sidebarDrill(${c.id})">
+        <span class="child-name" title="${c.name}">${c.name}</span>
+        <span style="color:#e94560;flex-shrink:0;margin-left:4px">${fmt(c.size)}${drill ? ' ▶' : ''}</span>
+      </div>`;
+            });
+        }
+        document.getElementById('sidebar-content').innerHTML = html;
+    }
+
+    window.sidebarDrill = function (id) {
+        const node = nodeById.get(id);
+        if (!node) return;
+        if (node.children && node.children.length > 0) {
+            history.push(currentNode);
+            renderTreemap(node);
+        } else {
+            updateSidebar(node);
+        }
+    };
+
+    // ═══════════════════════════════════════════════════════
+    // BOOT
+    // ═══════════════════════════════════════════════════════
+    document.getElementById('parse-btn').addEventListener('click', () => {
+        const text = document.getElementById('paste-area').value;
+        if (!text.trim()) {
+            document.getElementById('error-msg').textContent = 'Paste a report first.';
+            return;
+        }
+        try {
+            const data = parseReport(text);
+            if (!data.children.length) throw new Error('Nothing parsed — check format.');
+            squash(data);
+            _nextId = 0;
+            nodeById.clear();
+            assignIds(data);
+            fullData = data;
+            currentNode = data;
+            history = [data];
+            document.getElementById('paste-overlay').style.display = 'none';
+            document.getElementById('app').style.display = 'flex';
+            document.getElementById('total-size').textContent = 'Total: ' + fmt(data.size);
+            renderTreemap(data);
+        } catch (e) {
+            document.getElementById('error-msg').textContent = 'Error: ' + e.message;
+            console.error(e);
+        }
+    });
+
+    document.getElementById('reset-btn').addEventListener('click', () => {
+        if (!fullData) return;
+        history = [fullData];
+        renderTreemap(fullData);
+    });
+    document.getElementById('back-btn').addEventListener('click', () => {
+        if (history.length <= 1) return;
+        history.pop();
+        renderTreemap(history[history.length - 1]);
+    });
+    document.getElementById('search').addEventListener('input', function () {
+        searchTerm = this.value.trim();
+        if (currentNode) renderTreemap(currentNode);
+    });
+    window.addEventListener('resize', () => {
+        if (currentNode) renderTreemap(currentNode);
+    });
+</script>
+</body>
+</html>
+
+<script>
+
+</script>
+</body>
+</html>
+                    
