@@ -63,3 +63,6 @@
 [submodule "zmk-bistable-behavior"]
 	path = zmk-bistable-behavior
 	url = https://github.com/efogdev/zmk-bistable-behavior.git
+[submodule "zmk-ble-shell"]
+	path = zmk-ble-shell
+	url = https://github.com/efogdev/zmk-ble-shell.git

@@ -250,7 +250,13 @@
     <p>Paste your full binary size report (tree format with sizes and percentages)</p>
     <textarea id="paste-area" placeholder="Paste report here…"></textarea>
     <div id="error-msg"></div>
-    <button id="parse-btn">Visualize →</button>
+    <div style="display:flex;gap:10px;align-items:center">
+        <button id="parse-btn">Visualize →</button>
+        <label style="padding:9px 18px;background:#0f3460;border:1px solid #e94560;color:#eee;border-radius:4px;font-size:13px;cursor:pointer;font-family:monospace">
+            📂 Open file…
+            <input type="file" id="file-input" accept=".txt,.log,text/*" style="display:none">
+        </label>
+    </div>
 </div>
 <div id="app" style="display:none">
     <div id="toolbar">
@@ -733,6 +739,20 @@
     });
     window.addEventListener('resize', () => {
         if (currentNode) renderTreemap(currentNode);
+    });
+    document.getElementById('file-input').addEventListener('change', function () {
+        const file = this.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            document.getElementById('paste-area').value = e.target.result;
+            document.getElementById('error-msg').textContent = '';
+        };
+        reader.onerror = () => {
+            document.getElementById('error-msg').textContent = 'Error reading file.';
+        };
+        reader.readAsText(file);
+        this.value = '';
     });
 </script>
 </body>
