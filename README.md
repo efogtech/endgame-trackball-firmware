@@ -10,7 +10,7 @@
 
 #### Locally
 1. `git submodule update --init`
-2. `cd zmk/` 
+2. `cd zmk/`
 3. `west init -l app`
 4. `west update`
 
@@ -21,8 +21,26 @@ west build --pristine always -s app -b efogtech_trackball_0 -S studio-rpc-usb-ua
 
 Look for `build/zephyr/zmk.uf2` — it's your firmware.
 
+#### Locally, via Docker
+
+First time:
+
+```sh
+git submodule update --init --recursive
+mkdir -p output
+docker build -t endgame-firmware
+```
+
+Building:
+
+```sh
+docker run --rm -v "$(pwd):/workspace" -v "$(pwd)/output:/output" endgame-firmware
+```
+
 #### GitHub Actions
 Fork the `endgame-trackball-config` repository. Any commit will trigger an action that will build the firmware for you.
+
+
 
 ### Troubleshooting
 
