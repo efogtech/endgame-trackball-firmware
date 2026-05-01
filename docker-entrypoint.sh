@@ -31,6 +31,7 @@ add_module "zmk-input-processor-rotate-plane"
 add_module "zmk-runtime-config"
 add_module "zmk-bistable-behavior"
 add_module "zmk-ble-shell"
+add_module "zmk-esb-endpoint"
 
 echo "Building ZMK firmware for Endgame Trackball..."
 echo "Extra modules: $EXTRA_MODULES"
