@@ -1,0 +1,9 @@
+&cdc_acm_console_uart {
+	current-speed = <460800>;
+};
+
+#ifdef CONFIG_DONGLE_NOLED
+&led_strip {
+	status = "disabled";
+};
+#endif

@@ -66,3 +66,6 @@
 [submodule "zmk-ble-shell"]
 	path = zmk-ble-shell
 	url = https://github.com/efogdev/zmk-ble-shell.git
+[submodule "zmk-esb-endpoint"]
+	path = zmk-esb-endpoint
+	url = https://github.com/efogdev/zmk-esb-endpoint.git

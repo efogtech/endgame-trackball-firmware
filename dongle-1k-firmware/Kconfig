@@ -1,0 +1,578 @@
+# SPDX-License-Identifier: MIT
+
+mainmenu "Endgame Dongle"
+
+source "Kconfig.zephyr"
+
+config DONGLE_UNPAIR_HOLD_MS
+    int "Button hold duration to unpair (ms)"
+    default 5000
+    range 1000 30000
+    help
+      How long the pair button must be held while paired to forget the peer.
+
+config DONGLE_NOLED
+    bool "Disable dongle status LED entirely"
+    default n
+    help
+      Forces &led_strip to stay disabled. The WS2812 devicetree node is
+      disabled in the overlay and led_status_*() become compile-time
+      no-ops, so no SPI traffic is ever generated for the status LED.
+
+config DONGLE_LED_BRIGHTNESS
+    int "Status LED brightness percent (0-100)"
+    default 7
+    range 0 100
+    help
+      Scales the WS2812 RGB channels for the status LED.
+
+config DONGLE_NO_ACTIVE_EFFECTS
+    bool "Suspend status LED bus while paired"
+    default n
+    select PM_DEVICE
+    help
+      When enabled and the dongle is paired, the LED is driven dark and
+      the WS2812's SPI bus is put into PM suspend (sleep pinctrl state).
+      The LED thread keeps running but performs no SPI traffic until
+      the dongle becomes unpaired again. Hop flashes, shell-relay
+      indicators and the connected/idle colors are all suppressed for
+      the duration. Unpaired/armed states are unaffected.
+
+config DONGLE_LED_TICK_MS
+    int "LED thread tick interval (ms)"
+    default 10
+    range 1 100
+
+config DONGLE_LED_BLINK_HALF_PERIOD_MS
+    int "LED blink half-period for armed/pairing state (ms)"
+    default 150
+    range 50 1000
+
+config DONGLE_LED_CONNECTED_TIMEOUT_MS
+    int "Duration after last RX before LED switches to idle color (ms)"
+    default 100
+    range 100 10000
+
+config DONGLE_LED_UNPAIRED_R
+    int "Unpaired state LED red component (0-255)"
+    default 0
+    range 0 255
+
+config DONGLE_LED_UNPAIRED_G
+    int "Unpaired state LED green component (0-255)"
+    default 0
+    range 0 255
+
+config DONGLE_LED_UNPAIRED_B
+    int "Unpaired state LED blue component (0-255)"
+    default 255
+    range 0 255
+
+config DONGLE_LED_ARMED_R
+    int "Armed/pairing blink LED red component (0-255)"
+    default 0
+    range 0 255
+
+config DONGLE_LED_ARMED_G
+    int "Armed/pairing blink LED green component (0-255)"
+    default 0
+    range 0 255
+
+config DONGLE_LED_ARMED_B
+    int "Armed/pairing blink LED blue component (0-255)"
+    default 255
+    range 0 255
+
+config DONGLE_LED_SHELL_RELAY_R
+    int "Shell relay active LED red component (0-255)"
+    default 128
+    range 0 255
+
+config DONGLE_LED_SHELL_RELAY_G
+    int "Shell relay active LED green component (0-255)"
+    default 0
+    range 0 255
+
+config DONGLE_LED_SHELL_RELAY_B
+    int "Shell relay active LED blue component (0-255)"
+    default 255
+    range 0 255
+
+config DONGLE_LED_SHELL_PENDING_R
+    int "Shell relay pending (requested but unconfirmed) LED red component (0-255)"
+    default 255
+    range 0 255
+
+config DONGLE_LED_SHELL_PENDING_G
+    int "Shell relay pending (requested but unconfirmed) LED green component (0-255)"
+    default 80
+    range 0 255
+
+config DONGLE_LED_SHELL_PENDING_B
+    int "Shell relay pending (requested but unconfirmed) LED blue component (0-255)"
+    default 0
+    range 0 255
+
+config DONGLE_LED_CONNECTED_R
+    int "Connected/active LED red component (0-255)"
+    default 0
+    range 0 255
+
+config DONGLE_LED_CONNECTED_G
+    int "Connected/active LED green component (0-255)"
+    default 255
+    range 0 255
+
+config DONGLE_LED_CONNECTED_B
+    int "Connected/active LED blue component (0-255)"
+    default 0
+    range 0 255
+
+config DONGLE_LED_IDLE_R
+    int "Paired-idle LED red component (0-255)"
+    default 127
+    range 0 255
+
+config DONGLE_LED_IDLE_G
+    int "Paired-idle LED green component (0-255)"
+    default 255
+    range 0 255
+
+config DONGLE_LED_IDLE_B
+    int "Paired-idle LED blue component (0-255)"
+    default 0
+    range 0 255
+
+config DONGLE_LED_HOP_R
+    int "Channel-hop flash LED red component (0-255)"
+    default 255
+    range 0 255
+
+config DONGLE_LED_HOP_G
+    int "Channel-hop flash LED green component (0-255)"
+    default 90
+    range 0 255
+
+config DONGLE_LED_HOP_B
+    int "Channel-hop flash LED blue component (0-255)"
+    default 0
+    range 0 255
+
+config DONGLE_LED_HOP_FLASH_MS
+    int "Channel-hop flash duration (ms)"
+    default 300
+    range 50 2000
+    help
+      How long the status LED is held on the hop-flash color (orange by
+      default) after the dongle hops channels. Overrides all other LED
+      states for the duration.
+
+config DONGLE_LED_STACK_SIZE
+    int "LED status thread stack size (bytes)"
+    default 1024
+    range 512 4096
+
+config DONGLE_LED_THREAD_PRIORITY
+    int "LED status thread preemptive priority"
+    default 14
+    range 0 15
+
+config DONGLE_ESB_RF_CHANNEL
+    int "ESB RF channel (0-100)"
+    default 78
+    range 0 100
+    help
+      RF channel used by the PRX. Must match the PTX channel.
+
+config DONGLE_CHANNEL_HOP
+    bool "Dynamic channel hopping follower"
+    default y
+    help
+      Mirror of ZMK_ESB_ENDPOINT_CHANNEL_HOP on the dongle. The PTX
+      (keyboard) drives PROPOSAL / CONFIRM negotiation of the committed
+      next channel. The dongle hops to it when an RX-silence watchdog
+      trips — but only while the peer is known to be active. The
+      endpoint sends ESB_PKT_IDLE when the user has been idle for
+      ZMK_ESB_ENDPOINT_IDLE_THRESHOLD_MS, and the dongle disarms its
+      watchdog on receipt, so a quiet but healthy link never false-hops.
+
+if DONGLE_CHANNEL_HOP
+
+config DONGLE_CHANNEL_HOP_RX_SILENCE_MS
+    int "RX silence before hopping to committed-next (ms)"
+    default 330
+    range 50 60000
+    help
+      Silence threshold for the watchdog. Only runs while the peer is
+      NOT flagged idle. Must be comfortably larger than the keyboard's
+      ZMK_ESB_ENDPOINT_IDLE_THRESHOLD_MS (default 150) so the IDLE
+      packet that fires at the keyboard's active→idle transition has
+      a wide window to arrive before this watchdog assumes the link
+      went silent for a real reason. With idle_threshold=150 and the
+      3× IDLE retry burst draining in <1 ms, 300 ms leaves ~150 ms of
+      slack before false-firing — a sensible balance between IDLE
+      delivery margin and fast recovery on real link failures (the
+      keyboard's TX-fail hop trigger still reacts first, so this
+      watchdog is the safety net, not the primary detector).
+
+config DONGLE_CHANNEL_QUARANTINE_MS
+    int "Quarantine hold time for a bad channel (ms)"
+    default 300000
+    range 1000 600000
+
+config DONGLE_CHANNEL_QUARANTINE_MIN_DISTANCE
+    int "Minimum distance from any quarantined channel (MHz)"
+    default 5
+    range 0 20
+
+config DONGLE_CHANNEL_HOP_VALIDATE_MS
+    int "Speculative-hop validation window (ms)"
+    default 150
+    range 50 10000
+    help
+      After the silence watchdog trips and the dongle hops to the
+      committed next channel, it waits this long for any RX to arrive
+      on the new channel. If at least one packet is received, the hop
+      is confirmed: the old channel is quarantined. If nothing arrives,
+      the dongle reverts to the previous channel (the silence was
+      probably a genuinely-gone endpoint, e.g. HOP_NOW was never sent
+      and the user actually walked away), the committed_next is cleared,
+      and the old channel is NOT quarantined.
+
+config DONGLE_CHANNEL_HOP_ROLLBACK_SILENCE_MS
+    int "Long-silence rollback threshold (ms)"
+    default 600
+    range 100 60000
+    help
+      After this much time with no RX while paired-active, the dongle
+      enters rollback mode. A rebooted keyboard comes up on the DTS
+      default channel (DONGLE_ESB_RF_CHANNEL), so we alternate 50/50
+      between the last channel we were on when rollback started and
+      the default channel until any RX arrives — whichever one wins
+      is where the keyboard is. Must exceed CHANNEL_HOP_RX_SILENCE_MS
+      so the short-timeout committed_next speculative hop gets the
+      first attempt.
+
+config DONGLE_CHANNEL_HOP_ROLLBACK_DWELL_MS
+    int "Rollback dwell per channel (ms)"
+    default 12
+    range 10 5000
+    help
+      Time spent listening on each of the two rollback candidates
+      (last / default) before flipping to the other. Lower values find
+      the keyboard faster but do more radio work; it still needs to be
+      long enough to catch one of the endpoint's fast-retry PROPOSALs.
+
+config DONGLE_CHANNEL_HOP_VALIDATE_FAIL_ROLLBACK_MS
+    int "Rollback delay after a failed speculative-hop validation (ms)"
+    default 200
+    range 0 60000
+    help
+      A failed speculative-hop validation is positive evidence that the
+      keyboard is not where committed_next pointed — sitting on the full
+      ROLLBACK_SILENCE_MS (default 900 ms) before starting the rollback
+      dwell wastes time when we already know the standard recovery is
+      needed. After validate_work_fn reverts, re-arm the rollback-silence
+      watchdog with this much shorter timeout so the dwell cycle starts
+      promptly. Set to 0 to disable (rollback then waits the full
+      ROLLBACK_SILENCE_MS).
+
+config DONGLE_CHANNEL_HOP_SPECULATIVE_COOLDOWN_MS
+    int "Cooldown after a speculative hop resolves (ms)"
+    default 2500
+    range 0 60000
+    help
+      After a speculative hop is validated or reverted, block the silence
+      watchdog from firing another speculative hop for this long. Without
+      it, a stale PROPOSAL arriving inside the post-failure window can
+      repopulate committed_next and trigger a back-to-back speculative
+      hop on a still-wrong target before the rollback dwell has had a
+      chance to find the keyboard. The cooldown defers — does not cancel —
+      so a fresh, valid committed_next will still be acted on once it
+      expires. Set to 0 to disable.
+
+config DONGLE_COOP_HOP_PRX_SETUP_BUDGET_MS
+    int "Cooperative hop: PRX channel-switch budget (ms)"
+    default 1
+    range 0 10
+    help
+      Slack subtracted from the cooperative-hop deadline on the dongle
+      side to account for esb_stop_rx → esb_set_rf_channel → esb_start_rx.
+      The endpoint's bare esb_set_rf_channel is faster, so the dongle
+      starts its switch this many ms early to land at the radio-on
+      instant when the endpoint also flips.
+
+config DONGLE_COOP_HOP_COOLDOWN_MS
+    int "Cooperative hop: minimum interval between two coop hops (ms)"
+    default 2500
+    range 100 30000
+    help
+      After a cooperative hop commits on the dongle side, set
+      m_spec_cooldown_until to suppress speculative hops for this long.
+      Should match the endpoint's
+      ZMK_ESB_ENDPOINT_COOP_HOP_COOLDOWN_MS so both sides settle on
+      the same cadence.
+
+config DONGLE_COOP_HOP_QUARANTINE_MS
+    int "Cooperative hop: quarantine hold for the channel just left (ms)"
+    default 30000
+    range 100 600000
+    help
+      Mirrors ZMK_ESB_ENDPOINT_COOP_HOP_QUARANTINE_MS on the dongle
+      side. Coop hops fire on transient interference; the full
+      CHANNEL_QUARANTINE_MS would over-punish a channel that is about
+      to recover. Should match the endpoint value so both sides agree
+      on which channels are eligibCOOP_HOP_HOP_IN_MSle.
+
+config DONGLE_COOP_HOP_VALIDATE_MS
+    int "Cooperative-hop validation window (ms)"
+    default 160
+    range 50 1000
+    help
+      After the dongle commits a coop hop, it waits this long for any
+      RX (HID, PROPOSAL, IDLE) on the new channel. RX confirms the
+      endpoint joined; the deferred old-channel quarantine then fires.
+      No RX means the endpoint missed our ACCEPT ACK and stayed on the
+      old channel — the dongle reverts to the old channel directly,
+      avoiding the ~3.4 s rollback-dwell blackout. Sizing: endpoint
+      first post-hop PROPOSAL lands at ≈ COOP_HOP_HOP_IN_MS +
+      ZMK_ESB_ENDPOINT_CHANNEL_HOP_POST_QUIET_MS after OFFER RX, then
+      every CHANNEL_HOP_POST_BURST_INTERVAL_MS. 160 ms gives ~5
+      PROPOSAL chances. Must be ≤ CHANNEL_HOP_ROLLBACK_SILENCE_MS so
+      the validate path always preempts the rollback path.
+
+config DONGLE_CHANNEL_PEEK_IDLE
+    bool "Periodically peek at default channel while peer is idle"
+    default y
+    help
+      While paired with the peer flagged idle (ESB_PKT_IDLE received)
+      and the dongle parked on a non-default channel, briefly hop to
+      DONGLE_ESB_RF_CHANNEL every CHANNEL_PEEK_IDLE_INTERVAL_MS and
+      listen for CHANNEL_PEEK_IDLE_DWELL_MS. If any packet arrives the
+      link resumes on the default channel; otherwise the dongle reverts.
+      The existing rollback dwell cycle covers the same "keyboard
+      rebooted onto default" case but is gated on !peer_idle, so long
+      idle windows have no equivalent recovery without this.
+
+config DONGLE_CHANNEL_PEEK_IDLE_INTERVAL_MS
+    int "Interval between idle peeks (ms)"
+    default 20
+    range 20 1000
+    depends on DONGLE_CHANNEL_PEEK_IDLE
+    help
+      Time between successive peeks. Shorter values recover a rebooted
+      peer faster at the cost of more stop_rx → set_rf_channel →
+      start_rx churn.
+
+config DONGLE_CHANNEL_PEEK_IDLE_DWELL_MS
+    int "Duration of each peek on the default channel (ms)"
+    default 1
+    range 1 200
+    depends on DONGLE_CHANNEL_PEEK_IDLE
+    help
+      How long to listen on the default channel per peek. Must be
+      long enough to catch at least one endpoint-side retry burst.
+      Short dwells reduce missed HID latency if the peer wakes up on
+      the original channel during a peek (endpoint TX-fail retry will
+      fire another burst when the dongle reverts, so a missed first
+      packet is bounded recovery, not a lost wake-up).
+
+endif # DONGLE_CHANNEL_HOP
+
+config DONGLE_LINK_STATS_INTERVAL_RX
+    int "RX packets between LINK_STATS ACK queueings"
+    default 16
+    range 1 1024
+    help
+      How many RX packets must arrive before the dongle queues an
+      ESB_PKT_LINK_STATS ACK payload carrying the peer's view of RSSI
+      (last + EWMA). At the keyboard's 1 kHz HID rate a value of 16
+      places ~60 stats updates per second into the ACK stream — enough
+      to drive adaptive-retransmit decisions without flooding. Set
+      higher to reduce ACK-channel contention if the keyboard queues
+      non-HID control traffic (shell, bench) heavily.
+
+config DONGLE_ESB_RX_MSGQ_DEPTH
+    int "ESB RX message queue depth (packets)"
+    default 32
+    range 4 128
+    help
+      Number of slots in the queue between the ESB event handler (ISR) and
+      the dispatch thread. Must be deep enough to hold a burst of back-to-back
+      RX packets; if full, packets are dropped.
+
+config DONGLE_ESB_RX_STACK_SIZE
+    int "ESB RX thread stack size (bytes)"
+    default 2048
+    range 512 8192
+
+config DONGLE_ESB_RX_THREAD_PRIORITY
+    int "ESB RX thread cooperative priority"
+    default 2
+    range 0 13
+
+config DONGLE_HID_REPORT_ID_KB
+    int "HID keyboard report ID"
+    default 1
+    range 1 15
+
+config DONGLE_HID_REPORT_ID_CONSUMER
+    int "HID consumer report ID"
+    default 2
+    range 1 15
+
+config DONGLE_HID_REPORT_ID_MOUSE
+    int "HID mouse report ID"
+    default 3
+    range 1 15
+
+config DONGLE_MOUSE_BUTTON_COUNT
+    int "Number of mouse buttons in HID report"
+    default 5
+    range 1 8
+
+config DONGLE_USB_TX_QUEUE_DEPTH
+    int "USB HID TX queue depth"
+    default 64
+    range 2 128
+
+config DONGLE_SHELL_RELAY
+    bool "ESB shell relay on dongle"
+    default y
+    help
+      Single button press when paired requests a shell session from the
+      keyboard over ESB. I/O is forwarded via USB CDC UART.
+
+config DONGLE_SHELL_RELAY_INACTIVITY_S
+    int "Dongle shell relay inactivity timeout (seconds, 0 = disabled)"
+    default 60
+    range 0 3600
+    depends on DONGLE_SHELL_RELAY
+    help
+      Stop the shell relay session if no SHELL_POLL or SHELL_DATA is received
+      from the keyboard for this many seconds. 0 disables the timeout.
+
+config DONGLE_SHELL_RELAY_INPUT_BUF_SIZE
+    int "Shell relay CDC input ring buffer size (bytes)"
+    default 256
+    range 64 4096
+    depends on DONGLE_SHELL_RELAY
+
+config DONGLE_SHELL_RELAY_FIFO_FULL_RETRY_MS
+    int "Shell relay retry delay when ESB ACK FIFO is full (ms)"
+    default 2000
+    range 100 10000
+    depends on DONGLE_SHELL_RELAY
+
+config DONGLE_SHELL_RELAY_RETRY_MS
+    int "Shell relay SHELL_REQ retry interval (ms)"
+    default 200
+    range 50 5000
+    depends on DONGLE_SHELL_RELAY
+
+config DONGLE_SHELL_RELAY_POLL_WATCHDOG_MS
+    int "Shell relay poll watchdog timeout (ms, 0 = disabled)"
+    default 1000
+    range 0 30000
+    depends on DONGLE_SHELL_RELAY
+    help
+      If no SHELL_POLL is received from the keyboard for this many ms while
+      a shell session is active and confirmed, the dongle assumes the
+      keyboard has gone away (e.g. endpoint switched to BLE), flushes the
+      stale ACK FIFO, and re-issues SHELL_REQ so the session recovers when
+      the keyboard comes back. 0 disables the watchdog.
+
+
+config DONGLE_SHELL_RELAY_OUTPUT_BUF_SIZE
+    int "Shell relay CDC output ring buffer size (bytes)"
+    default 2048
+    range 256 8192
+    depends on DONGLE_SHELL_RELAY
+    help
+      Buffers keyboard shell output before writing to the CDC UART TX FIFO.
+      Prevents bytes from being dropped when a USB bulk-IN transfer is already
+      in flight. Must be larger than CONFIG_USB_CDC_ACM_RINGBUF_SIZE.
+
+config DONGLE_SHELL_RELAY_TX_CHUNK_MAX
+    int "Max bytes per uart_fifo_fill call when draining output ring"
+    default 64
+    range 16 256
+    depends on DONGLE_SHELL_RELAY
+
+config DONGLE_SHELL_RELAY_ALWAYS_ON
+    bool "Always-on shell relay"
+    default n
+    depends on DONGLE_SHELL_RELAY
+    help
+      When enabled: the relay is not disconnected on inactivity, the
+      dongle re-initiates the relay automatically if the keyboard drops
+      it (ESB_PKT_SHELL_STOP), and the relay is requested immediately
+      on connection (pairing complete or known peer at boot).
+
+# ---- ESB Kconfig (mirrors nrf/subsys/esb/Kconfig) ----
+
+config ESB
+    bool "Enhanced ShockBurst"
+    default y
+
+if ESB
+
+config ESB_MAX_PAYLOAD_LENGTH
+    int "Maximum ESB payload size"
+    default 32
+    range 1 32
+
+config ESB_TX_FIFO_SIZE
+    int "ESB TX FIFO depth"
+    default 24
+
+config ESB_RX_FIFO_SIZE
+    int "ESB RX FIFO depth"
+    default 64
+
+config ESB_PIPE_COUNT
+    int "ESB pipe count"
+    default 2
+    range 1 8
+
+config ESB_RADIO_IRQ_PRIORITY
+    int "ESB radio interrupt priority"
+    default 1
+
+config ESB_EVENT_IRQ_PRIORITY
+    int "ESB event interrupt priority"
+    default 2
+
+config ESB_SYS_TIMER2
+    bool
+    default y
+
+config ESB_SYS_TIMER_INSTANCE
+    int
+    default 2
+
+config ESB_SYS_TIMER_INSTANCE_LEADING_ZERO
+    bool
+    default n
+
+config ESB_DYNAMIC_INTERRUPTS
+    bool "ESB dynamic interrupt support"
+    default y
+
+config ESB_NEVER_DISABLE_TX
+    bool
+    default n
+
+config ESB_FAST_SWITCHING
+    bool
+    default n
+
+config ESB_FAST_CHANNEL_SWITCHING
+    bool
+    default n
+
+module=ESB
+module-str=ESB
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+
+endif # ESB
