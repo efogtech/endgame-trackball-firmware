@@ -27,7 +27,7 @@ After flashing, it will reboot itself into the firmware.
 
 1. 🟦 Blue, solid  — not bonded, doing nothing.
 2. 🟦 Blue, blinking — attempting to bond.
-3. 🟨 Light green, solid — bonded, idle.
+3. 🟨 Yellow, solid — bonded, peer idle.
 4. 🟩 Green, solid — active communication.
 5. 🟪 Purple, solid — shell relay mode.
 6. 🟧 Orange, solid — link lost, reconnecting.
