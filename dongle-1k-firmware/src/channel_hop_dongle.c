@@ -188,7 +188,7 @@ static void hop_work_fn(struct k_work *w) {
         LOG_ERR("channel hop %u -> %u failed: %d", current, target, err);
         return;
     }
-    led_status_flash_hop();
+    led_status_flash_nolink();
     m_speculative_prev = current;
     m_speculative_target = target;
     k_work_reschedule(&m_validate_work, K_MSEC(CONFIG_DONGLE_CHANNEL_HOP_VALIDATE_MS));
@@ -226,12 +226,20 @@ static void validate_work_fn(struct k_work *w) {
         LOG_ERR("revert %u -> %u failed: %d", failed_target, revert_to, err);
         return;
     }
+    led_status_set_link_lost(true);
     /* Remember the failed target for the rollback dwell cycle: validation
      * can fail for benign reasons (one missed packet) and that channel may
      * still be where the peer lives. */
     m_rollback_last_tried = failed_target;
-    m_spec_cooldown_until = k_uptime_get_32() +
-        CONFIG_DONGLE_CHANNEL_HOP_SPECULATIVE_COOLDOWN_MS;
+    /* Clear cooldown on validate-fail. The cooldown defends speculative
+     * hops against a stale PROPOSAL re-firing the same wrong target;
+     * that risk is gone because committed_next was just cleared above.
+     * Refreshing it here would also turn FAIL_ROLLBACK_MS into a dead
+     * letter: the rollback_silence_work scheduled below would land
+     * inside the cooldown window and enter_rollback would defer instead
+     * of entering the dwell cycle, so the fast-track-to-rollback path
+     * never wins on a real desync. */
+    m_spec_cooldown_until = 0;
     LOG_INF("speculation failed, reverted %u → %u, committed_next cleared",
             failed_target, revert_to);
     /* rollback_silence_work is still ticking down from the last real RX.
@@ -345,7 +353,7 @@ static void coop_hop_commit_work_fn(struct k_work *w) {
         return;
     }
 
-    led_status_flash_hop();
+    led_status_flash_nolink();
     m_committed_next = CHANNEL_HOP_INVALID;
     m_spec_cooldown_until = k_uptime_get_32() +
         CONFIG_DONGLE_COOP_HOP_COOLDOWN_MS;
@@ -403,6 +411,7 @@ static void coop_hop_validate_work_fn(struct k_work *w) {
         LOG_ERR("coop revert %u -> %u failed: %d", failed_target, revert_to, err);
         return;
     }
+    led_status_set_link_lost(true);
 
     /* The abandoned coop target was never quarantined (we deferred), so
      * nothing to lift. Stash it for any later rollback dwell: the
@@ -606,38 +615,18 @@ static void enter_rollback(void) {
         return;
     }
 
-#if CONFIG_DONGLE_CHANNEL_HOP_SPECULATIVE_COOLDOWN_MS > 0
-    {
-        /* Symmetric with hop_work_fn's cooldown defer: a speculative or
-         * coop hop just put us on a (probably) good channel, so a brief
-         * post-hop silence is expected (the endpoint is in its own
-         * cooldown). Defer the rollback decision to whenever the cooldown
-         * ends — a fresh RX in the meantime cancels rollback_silence_work
-         * via note_rx_active. Without this, a healthy post-coop-hop link
-         * with no HID and no IDLE-yet trips rollback at exactly
-         * ROLLBACK_SILENCE_MS and tears the working channel down. */
-        const uint32_t now = k_uptime_get_32();
-        const int32_t remaining = (int32_t)(m_spec_cooldown_until - now);
-        if (remaining > 0) {
-            /* Stagger past the silence-watchdog window so silence_work
-             * (deferred to the same cooldown deadline in hop_work_fn)
-             * gets a clean shot at its speculative hop + validate cycle
-             * first. On validate-success, note_rx_active cancels us via
-             * rearm_silence_if_needed. On validate-failure, validate_work_fn
-             * re-arms us for VALIDATE_FAIL_ROLLBACK_MS, which lands well
-             * before this staggered deadline and wins. Pinning both
-             * timers to the same deadline (no stagger) would let both
-             * state machines drive the radio on the same tick. */
-            LOG_INF("rollback deferred: cooldown %d ms left", remaining);
-            k_work_reschedule(&m_rollback_silence_work,
-                              K_MSEC((uint32_t)remaining +
-                                     CONFIG_DONGLE_CHANNEL_HOP_RX_SILENCE_MS +
-                                     CONFIG_DONGLE_CHANNEL_HOP_VALIDATE_MS));
-            return;
-        }
-    }
-#endif
-
+    /* Rollback does NOT gate on m_spec_cooldown_until. The cooldown's
+     * job is to defend speculative hops from a stale PROPOSAL re-firing
+     * the same wrong target; rollback firing means we have already had
+     * ROLLBACK_SILENCE_MS of total silence — independent positive
+     * evidence of a dead link, not a candidate for "wait it out".
+     * Coop hops separately push rollback_silence_work out by
+     * COOP_HOP_COOLDOWN_MS + ROLLBACK_SILENCE_MS in
+     * coop_hop_commit_work_fn, so a healthy-but-quiet post-coop window
+     * does not reach this path. A hypothetical "rollback honors
+     * cooldown" rule would make FAIL_ROLLBACK_MS a no-op: a validate-
+     * fail-then-rollback sequence would land inside the cooldown the
+     * fail itself just set, and defer instead of entering the dwell. */
     const uint8_t current = esb_prx_get_channel();
     const uint8_t default_ch = CONFIG_DONGLE_ESB_RF_CHANNEL;
 
@@ -670,6 +659,7 @@ static void enter_rollback(void) {
             return;
         }
     }
+    led_status_set_link_lost(true);
     /* default_ch is always cycle[0]. */
     m_rollback_idx = 0;
     LOG_INF("rollback: default=%u last_ch=%u last_tried=%u (%u-channel cycle), starting on default",
@@ -899,6 +889,7 @@ void channel_hop_dongle_set_paired(bool paired) {
         k_work_cancel_delayable(&m_coop_hop_commit_work);
         k_work_cancel_delayable(&m_coop_hop_validate_work);
         exit_rollback();
+        led_status_set_link_lost(false);
         peek_on_unpair();
     }
     rearm_silence_if_needed();
@@ -947,6 +938,7 @@ void channel_hop_dongle_note_rx_active(void) {
     confirm_coop_hop_if_any();
     confirm_speculative_if_any();
     exit_rollback();
+    led_status_set_link_lost(false);
     peek_on_peer_active();
     rearm_silence_if_needed();
 }
@@ -963,6 +955,7 @@ void channel_hop_dongle_note_rx_idle(void) {
     confirm_coop_hop_if_any();
     confirm_speculative_if_any();
     exit_rollback();
+    led_status_set_link_lost(false);
     k_work_cancel_delayable(&m_silence_work);
     k_work_cancel_delayable(&m_rollback_silence_work);
     rearm_peek_if_needed();

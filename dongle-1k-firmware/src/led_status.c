@@ -7,9 +7,13 @@
  *   !paired, !armed       -> CONFIG_DONGLE_LED_UNPAIRED_*
  *   !paired, armed        -> blink CONFIG_DONGLE_LED_ARMED_* at
  *                            CONFIG_DONGLE_LED_BLINK_HALF_PERIOD_MS
+ *   any state, hop fired  -> one-shot CONFIG_DONGLE_LED_NOLINK_* flash for
+ *                            CONFIG_DONGLE_LED_NOLINK_FLASH_MS
+ *   paired, link lost     -> solid CONFIG_DONGLE_LED_NOLINK_* (overrides
+ *                            connected/idle, yields to shell relay/pending)
  *   paired, no recent RX  -> CONFIG_DONGLE_LED_IDLE_*
  *   paired, recent RX     -> CONFIG_DONGLE_LED_CONNECTED_*
- *   paired                -> SPI bus suspended, LED dark
+ *   paired, link healthy  -> SPI bus suspended, LED dark
  *                            (when CONFIG_DONGLE_NO_ACTIVE_EFFECTS=y)
  */
 
@@ -36,7 +40,8 @@ void led_status_set_armed(const bool armed) { ARG_UNUSED(armed); }
 void led_status_set_shell_relay(const bool active) { ARG_UNUSED(active); }
 void led_status_set_shell_pending(const bool pending) { ARG_UNUSED(pending); }
 void led_status_mark_rx(void) {}
-void led_status_flash_hop(void) {}
+void led_status_flash_nolink(void) {}
+void led_status_set_link_lost(const bool lost) { ARG_UNUSED(lost); }
 
 #else
 
@@ -55,7 +60,8 @@ static atomic_t m_armed;
 static atomic_t m_shell_relay;
 static atomic_t m_shell_pending;
 static atomic_t m_last_rx_ms;
-static atomic_t m_hop_flash_until_ms;
+static atomic_t m_nolink_flash_until_ms;
+static atomic_t m_link_lost;
 
 static uint8_t scale(const uint8_t v) {
     return (uint8_t)(((uint32_t)v * CONFIG_DONGLE_LED_BRIGHTNESS) / 100U);
@@ -103,7 +109,7 @@ static void led_thread_fn(void *p1, void *p2, void *p3) {
     uint32_t phase = 0;
     while (1) {
 #if IS_ENABLED(CONFIG_DONGLE_NO_ACTIVE_EFFECTS)
-        if (atomic_get(&m_paired)) {
+        if (atomic_get(&m_paired) && !atomic_get(&m_link_lost)) {
             suspend_spi_if_needed();
             phase++;
             k_sleep(K_MSEC(TICK_MS));
@@ -113,11 +119,11 @@ static void led_thread_fn(void *p1, void *p2, void *p3) {
 #endif
 
         const uint32_t now_ms = (uint32_t)k_uptime_get();
-        const uint32_t hop_until = (uint32_t)atomic_get(&m_hop_flash_until_ms);
-        if (hop_until != 0 && (int32_t)(hop_until - now_ms) > 0) {
-            set_rgb(CONFIG_DONGLE_LED_HOP_R,
-                    CONFIG_DONGLE_LED_HOP_G,
-                    CONFIG_DONGLE_LED_HOP_B);
+        const uint32_t nolink_until = (uint32_t)atomic_get(&m_nolink_flash_until_ms);
+        if (nolink_until != 0 && (int32_t)(nolink_until - now_ms) > 0) {
+            set_rgb(CONFIG_DONGLE_LED_NOLINK_R,
+                    CONFIG_DONGLE_LED_NOLINK_G,
+                    CONFIG_DONGLE_LED_NOLINK_B);
             phase++;
             k_sleep(K_MSEC(TICK_MS));
             continue;
@@ -142,6 +148,8 @@ static void led_thread_fn(void *p1, void *p2, void *p3) {
                 set_rgb(CONFIG_DONGLE_LED_SHELL_RELAY_R, CONFIG_DONGLE_LED_SHELL_RELAY_G, CONFIG_DONGLE_LED_SHELL_RELAY_B);
             } else if (shell_pending) {
                 set_rgb(CONFIG_DONGLE_LED_SHELL_PENDING_R, CONFIG_DONGLE_LED_SHELL_PENDING_G, CONFIG_DONGLE_LED_SHELL_PENDING_B);
+            } else if (atomic_get(&m_link_lost)) {
+                set_rgb(CONFIG_DONGLE_LED_NOLINK_R, CONFIG_DONGLE_LED_NOLINK_G, CONFIG_DONGLE_LED_NOLINK_B);
             } else {
                 const uint32_t last = (uint32_t)atomic_get(&m_last_rx_ms);
                 const bool connected = (uint32_t)(now_ms - last) < CONNECTED_TIMEOUT_MS;
@@ -194,10 +202,14 @@ void led_status_mark_rx(void) {
     atomic_set(&m_last_rx_ms, (atomic_val_t)(uint32_t)k_uptime_get());
 }
 
-void led_status_flash_hop(void) {
+void led_status_flash_nolink(void) {
     const uint32_t now = (uint32_t)k_uptime_get();
-    const uint32_t deadline = now + (uint32_t)CONFIG_DONGLE_LED_HOP_FLASH_MS;
-    atomic_set(&m_hop_flash_until_ms, (atomic_val_t)deadline);
+    const uint32_t deadline = now + (uint32_t)CONFIG_DONGLE_LED_NOLINK_FLASH_MS;
+    atomic_set(&m_nolink_flash_until_ms, (atomic_val_t)deadline);
+}
+
+void led_status_set_link_lost(const bool lost) {
+    atomic_set(&m_link_lost, lost ? 1 : 0);
 }
 
 #endif /* CONFIG_DONGLE_NOLED */

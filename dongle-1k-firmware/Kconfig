@@ -143,29 +143,32 @@ config DONGLE_LED_IDLE_B
     default 0
     range 0 255
 
-config DONGLE_LED_HOP_R
-    int "Channel-hop flash LED red component (0-255)"
+config DONGLE_LED_NOLINK_R
+    int "No-link indicator LED red component (0-255)"
     default 255
     range 0 255
 
-config DONGLE_LED_HOP_G
-    int "Channel-hop flash LED green component (0-255)"
+config DONGLE_LED_NOLINK_G
+    int "No-link indicator LED green component (0-255)"
     default 90
     range 0 255
 
-config DONGLE_LED_HOP_B
-    int "Channel-hop flash LED blue component (0-255)"
+config DONGLE_LED_NOLINK_B
+    int "No-link indicator LED blue component (0-255)"
     default 0
     range 0 255
 
-config DONGLE_LED_HOP_FLASH_MS
-    int "Channel-hop flash duration (ms)"
+config DONGLE_LED_NOLINK_FLASH_MS
+    int "No-link indicator flash duration (ms)"
     default 300
     range 50 2000
     help
-      How long the status LED is held on the hop-flash color (orange by
-      default) after the dongle hops channels. Overrides all other LED
-      states for the duration.
+      Dual-purpose status indicator: a one-shot flash of this duration
+      fires on every channel hop (speculative or cooperative), and the
+      same color is held solid while the dongle is paired but cannot
+      reach the peer (rollback dwell, post-validate-fail revert window).
+      Flash overrides all other LED states for the duration; solid
+      overrides connected/idle but yields to shell relay/pending.
 
 config DONGLE_LED_STACK_SIZE
     int "LED status thread stack size (bytes)"
@@ -200,7 +203,7 @@ if DONGLE_CHANNEL_HOP
 
 config DONGLE_CHANNEL_HOP_RX_SILENCE_MS
     int "RX silence before hopping to committed-next (ms)"
-    default 330
+    default 110
     range 50 60000
     help
       Silence threshold for the watchdog. Only runs while the peer is
@@ -227,7 +230,7 @@ config DONGLE_CHANNEL_QUARANTINE_MIN_DISTANCE
 
 config DONGLE_CHANNEL_HOP_VALIDATE_MS
     int "Speculative-hop validation window (ms)"
-    default 150
+    default 60
     range 50 10000
     help
       After the silence watchdog trips and the dongle hops to the
@@ -241,7 +244,7 @@ config DONGLE_CHANNEL_HOP_VALIDATE_MS
 
 config DONGLE_CHANNEL_HOP_ROLLBACK_SILENCE_MS
     int "Long-silence rollback threshold (ms)"
-    default 600
+    default 200
     range 100 60000
     help
       After this much time with no RX while paired-active, the dongle
@@ -255,8 +258,8 @@ config DONGLE_CHANNEL_HOP_ROLLBACK_SILENCE_MS
 
 config DONGLE_CHANNEL_HOP_ROLLBACK_DWELL_MS
     int "Rollback dwell per channel (ms)"
-    default 12
-    range 10 5000
+    default 8
+    range 4 5000
     help
       Time spent listening on each of the two rollback candidates
       (last / default) before flipping to the other. Lower values find
@@ -265,7 +268,7 @@ config DONGLE_CHANNEL_HOP_ROLLBACK_DWELL_MS
 
 config DONGLE_CHANNEL_HOP_VALIDATE_FAIL_ROLLBACK_MS
     int "Rollback delay after a failed speculative-hop validation (ms)"
-    default 200
+    default 60
     range 0 60000
     help
       A failed speculative-hop validation is positive evidence that the
@@ -279,7 +282,7 @@ config DONGLE_CHANNEL_HOP_VALIDATE_FAIL_ROLLBACK_MS
 
 config DONGLE_CHANNEL_HOP_SPECULATIVE_COOLDOWN_MS
     int "Cooldown after a speculative hop resolves (ms)"
-    default 2500
+    default 1500
     range 0 60000
     help
       After a speculative hop is validated or reverted, block the silence
@@ -304,7 +307,7 @@ config DONGLE_COOP_HOP_PRX_SETUP_BUDGET_MS
 
 config DONGLE_COOP_HOP_COOLDOWN_MS
     int "Cooperative hop: minimum interval between two coop hops (ms)"
-    default 2500
+    default 1500
     range 100 30000
     help
       After a cooperative hop commits on the dongle side, set
@@ -326,7 +329,7 @@ config DONGLE_COOP_HOP_QUARANTINE_MS
 
 config DONGLE_COOP_HOP_VALIDATE_MS
     int "Cooperative-hop validation window (ms)"
-    default 160
+    default 60
     range 50 1000
     help
       After the dongle commits a coop hop, it waits this long for any
