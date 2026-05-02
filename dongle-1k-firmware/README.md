@@ -25,12 +25,13 @@ After flashing, it will reboot itself into the firmware.
 <details>
 <summary>Learn what LED colors mean</summary>
 
-1. Blue, solid  — not bonded, doing nothing.
-2. Blue, blinking — attempting to bond.
-3. Light green, solid — bonded, idle.
-4. Green, solid — active communication.
-5. Purple, solid — shell relay mode.
-6. Orange — link lost, attempting to reconnect. 
+1. 🟦 Blue, solid  — not bonded, doing nothing.
+2. 🟦 Blue, blinking — attempting to bond.
+3. 🟨 Light green, solid — bonded, idle.
+4. 🟩 Green, solid — active communication.
+5. 🟪 Purple, solid — shell relay mode.
+6. 🟧 Orange, solid — link lost, reconnecting.
+7. 🟧 Orange, blinking — link degraded. 
 </details>
 
 When you power up the dongle for the first time, it will not be bonded with the trackball.  
