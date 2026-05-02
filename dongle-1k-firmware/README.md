@@ -25,6 +25,9 @@ After flashing, it will reboot itself into the firmware.
 
 ### Using
 
+> [!TIP]
+> Make sure your trackball is at v1.0.1 or newer firmware. 
+
 <details>
 <summary>Learn what LED colors mean</summary>
 
