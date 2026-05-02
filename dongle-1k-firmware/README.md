@@ -16,7 +16,9 @@
 To enter DFU (Device Firmware Update) mode, hold the side button while inserting the dongle.  
 The LED should turn green, and a new mass storage device will appear on your host.  
 Copy your UF2 firmware there directly, without renaming, replacing, or doing anything else.  
-After flashing, it will reboot itself into the firmware. 
+After flashing, it will reboot itself into the firmware.  
+
+[Latest firmware, UF2](https://efog.tech/storage/dongle-1k-firmware.uf2)   
 
 ### Using
 
