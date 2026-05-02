@@ -48,7 +48,7 @@ A shell session must be explicitly requested, either by invoking an assignable b
    
 When shell relay mode is active, you will be able to connect to the dongle via USB and use most of the MUI functionality.  
 What doesn't work yet: storage partition backup/restore, monitor mode for acceleration curves.  
-Shell relay mode is terminal automatically after a minute of shell inactivity. 
+Shell relay mode is terminated automatically after a minute of shell inactivity. 
 
 ### Misc
 
