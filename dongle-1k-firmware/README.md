@@ -13,6 +13,9 @@
 
 ### Flashing
 
+> [!TIP]
+> Your dongle might come not flashed. Just copy the latest UF2 onto it. 
+
 To enter DFU (Device Firmware Update) mode, hold the side button while inserting the dongle.  
 The LED should turn green, and a new mass storage device will appear on your host.  
 Copy your UF2 firmware there directly, without renaming, replacing, or doing anything else.  
@@ -44,7 +47,8 @@ As the [Marshmellow UI](https://efog.tech/marshmellow-ui) is just a front-end fo
 A shell session must be explicitly requested, either by invoking an assignable behavior on the trackball side or by pressing the button on the dongle.  
    
 When shell relay mode is active, you will be able to connect to the dongle via USB and use most of the MUI functionality.  
-What doesn't work yet: storage partition backup/restore, monitor mode for acceleration curves. 
+What doesn't work yet: storage partition backup/restore, monitor mode for acceleration curves.  
+Shell relay mode is terminal automatically after a minute of shell inactivity. 
 
 ### Misc
 
