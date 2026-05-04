@@ -190,7 +190,12 @@ static void poll_watchdog_kick(void) {
  * FIFO is filling with undeliverable payloads. Flush the stale queue, demote
  * to unconfirmed, and re-queue SHELL_REQ. The watchdog self-rearms so we keep
  * retrying periodically — a single re-request can get buried in a FIFO full
- * of stale SHELL_REQs from earlier retries, so each window we start fresh. */
+ * of stale SHELL_REQs from earlier retries, so each window we start fresh.
+ *
+ * m_output_rb is NOT reset here: it carries keyboard→CDC bytes that may have
+ * arrived just before the watchdog fired (a long-running keyboard command
+ * blocks SHELL_POLL but still bursts SHELL_DATA on completion). Wiping it
+ * silently drops the user's command output. */
 static void poll_watchdog_work_fn(struct k_work *w) {
     ARG_UNUSED(w);
     if (!m_active) {
@@ -203,7 +208,6 @@ static void poll_watchdog_work_fn(struct k_work *w) {
         m_echo = true;
         m_echo_off_pos = 0;
         ring_buf_reset(&m_input_rb);
-        ring_buf_reset(&m_output_rb);
         led_status_set_shell_relay(false);
         led_status_set_shell_pending(true);
     } else {
@@ -351,6 +355,7 @@ void shell_relay_on_rx_data(const struct esb_pkt_shell_data *pkt) {
         return;
     }
     inactivity_reset();
+    poll_watchdog_kick();
     LOG_DBG("output %u bytes → CDC UART", pkt->len);
     cdc_tx_enqueue(pkt->data, pkt->len);
 }

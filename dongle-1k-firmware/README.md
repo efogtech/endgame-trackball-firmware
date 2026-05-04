@@ -49,9 +49,9 @@ Then, click a button on the dongle. Bonding will be performed automatically, and
 As the [Marshmellow UI](https://efog.tech/marshmellow-ui) is just a front-end for the Zephyr shell, this mode will enable you to connect to MUI using the dongle. 
 A shell session must be explicitly requested, either by invoking an assignable behavior on the trackball side or by pressing the button on the dongle.  
    
-When shell relay mode is active, you will be able to connect to the dongle via USB and use most of the MUI functionality.  
-What doesn't work yet: storage partition backup/restore, monitor mode for acceleration curves.  
-Shell relay mode is terminated automatically after a minute of shell inactivity. 
+When shell relay mode is active, you will be able to connect to the dongle via USB and use most of the MUI functionality.    
+Shell relay mode is terminated automatically after a minute of shell inactivity.  
+Storage partition backup and restore are not available in this mode yet.  
 
 ### Misc
 
