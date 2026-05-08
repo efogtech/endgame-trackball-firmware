@@ -41,8 +41,9 @@ After flashing, it will reboot itself into the firmware.
 </details>
 
 When you power up the dongle for the first time, it will not be bonded with the trackball.  
-To create a bond, activate the dongle profile on the trackball (by switching to the last wireless slot).
-Then, click a button on the dongle. Bonding will be performed automatically, and you're ready to go. 
+To create a bond, activate the dongle profile on the trackball (by switching to the last wireless slot).  
+Then, click a button on the dongle. Bonding will be performed automatically, and you're ready to go.  
+In case if the dongle continues to blink blue, click the "restart" button on the trackball. 
 
 ### Shell relay mode
 
