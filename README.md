@@ -40,8 +40,6 @@ docker run --rm -v "$(pwd):/workspace" -v "$(pwd)/output:/output" endgame-firmwa
 #### GitHub Actions
 Fork the `endgame-trackball-config` repository. Any commit will trigger an action that will build the firmware for you.
 
-
-
 ### Troubleshooting
 
 1. Flash the [debug firmware](https://github.com/efogtech/endgame-trackball-config/tree/debug).

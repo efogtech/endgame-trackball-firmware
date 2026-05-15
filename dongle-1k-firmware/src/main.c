@@ -19,6 +19,10 @@
  * Button (P0.29, active low):
  *   short press when UNPAIRED → arm pairing (PAIRING)
  *   hold 5s    when PAIRED   → forget peer (UNPAIRED)
+ *
+ * Boards without a pair_btn DT node skip all button handling and instead
+ * auto-arm pairing at boot when no peer is stored. Unpair from such a
+ * dongle must come from the keyboard (DISCONNECT).
  */
 
 #include <zephyr/kernel.h>
@@ -100,6 +104,9 @@ static void save_paired(const bool paired) {
     led_status_set_paired(paired);
 }
 
+#define HAS_PAIR_BTN DT_NODE_EXISTS(DT_NODELABEL(pair_btn))
+
+#if HAS_PAIR_BTN
 static const struct gpio_dt_spec btn = GPIO_DT_SPEC_GET(DT_NODELABEL(pair_btn), gpios);
 static struct gpio_callback btn_cb_data;
 static struct k_work btn_work;
@@ -149,6 +156,7 @@ static void btn_work_fn(struct k_work *w) {
 static void btn_isr(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
     k_work_submit(&btn_work);
 }
+#endif /* HAS_PAIR_BTN */
 
 static void on_esb_rx(const uint8_t pipe, const uint8_t *data, const uint8_t len) {
     if (len < 1) {
@@ -419,6 +427,7 @@ int main(void) {
     }
     led_status_set_paired(m_has_peer);
 
+#if HAS_PAIR_BTN
     k_work_init(&btn_work, btn_work_fn);
     k_work_init_delayable(&long_press_work, long_press_work_fn);
 
@@ -430,6 +439,13 @@ int main(void) {
     gpio_pin_interrupt_configure_dt(&btn, GPIO_INT_EDGE_BOTH);
     gpio_init_callback(&btn_cb_data, btn_isr, BIT(btn.pin));
     gpio_add_callback(btn.port, &btn_cb_data);
+#else
+    if (!m_has_peer) {
+        LOG_INF("No pair button on board: auto-arming pairing");
+        m_state = STATE_PAIRING;
+        led_status_set_armed(true);
+    }
+#endif
 
     err = usb_hid_dongle_init();
     if (err) {
