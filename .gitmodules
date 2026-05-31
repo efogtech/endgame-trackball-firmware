@@ -72,3 +72,6 @@
 [submodule "zmk-feedback-common"]
 	path = zmk-feedback-common
 	url = https://github.com/efogdev/zmk-feedback-common.git
+[submodule "zmk-shell-relay-core"]
+	path = zmk-shell-relay-core
+	url = https://github.com/efogdev/zmk-shell-relay-core.git

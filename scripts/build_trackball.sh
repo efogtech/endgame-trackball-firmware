@@ -31,6 +31,7 @@ add_module "zmk-bistable-behavior"
 add_module "zmk-ble-shell"
 add_module "zmk-esb-endpoint"
 add_module "zmk-feedback-common"
+add_module "zmk-shell-relay-core"
 
 echo "Building ZMK firmware for Endgame Trackball..."
 echo "Extra modules: $EXTRA_MODULES"
