@@ -59,6 +59,10 @@ Storage partition backup and restore are not available in this mode yet.
 
 ### Misc
 
+> [!TIP]
+> The firmware has mechanisms to avoid noisy radio frequencies, but it takes time.  
+> In you are facing latency issues, it would be more beneficial to wait for 10-20 seconds rather than to reboot the device. 
+
 1. Hold the dongle button for 5 seconds to remove the existing bond.
 2. Execute `esb unpair` with MUI on the trackball side to forget the dongle.
 3. The dongle has priority over USB. Switch to another slot to use USB.
