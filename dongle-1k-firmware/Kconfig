@@ -203,20 +203,17 @@ if DONGLE_CHANNEL_HOP
 
 config DONGLE_CHANNEL_HOP_RX_SILENCE_MS
     int "RX silence before hopping to committed-next (ms)"
-    default 110
+    default 190
     range 50 60000
     help
       Silence threshold for the watchdog. Only runs while the peer is
       NOT flagged idle. Must be comfortably larger than the keyboard's
-      ZMK_ESB_ENDPOINT_IDLE_THRESHOLD_MS (default 150) so the IDLE
-      packet that fires at the keyboard's active→idle transition has
-      a wide window to arrive before this watchdog assumes the link
-      went silent for a real reason. With idle_threshold=150 and the
-      3× IDLE retry burst draining in <1 ms, 300 ms leaves ~150 ms of
-      slack before false-firing — a sensible balance between IDLE
-      delivery margin and fast recovery on real link failures (the
-      keyboard's TX-fail hop trigger still reacts first, so this
-      watchdog is the safety net, not the primary detector).
+      ZMK_ESB_ENDPOINT_IDLE_THRESHOLD_MS so the IDLE packet that fires
+      at the keyboard's active→idle transition has a wide window to
+      arrive before this watchdog assumes the link went silent for a
+      real reason — the slack between the two is the IDLE delivery
+      margin. The keyboard's TX-fail hop trigger still reacts first, so
+      this watchdog is the safety net, not the primary detector.
 
 config DONGLE_CHANNEL_QUARANTINE_MS
     int "Quarantine hold time for a bad channel (ms)"
@@ -230,7 +227,7 @@ config DONGLE_CHANNEL_QUARANTINE_MIN_DISTANCE
 
 config DONGLE_CHANNEL_HOP_VALIDATE_MS
     int "Speculative-hop validation window (ms)"
-    default 60
+    default 110
     range 50 10000
     help
       After the silence watchdog trips and the dongle hops to the
@@ -244,7 +241,7 @@ config DONGLE_CHANNEL_HOP_VALIDATE_MS
 
 config DONGLE_CHANNEL_HOP_ROLLBACK_SILENCE_MS
     int "Long-silence rollback threshold (ms)"
-    default 200
+    default 340
     range 100 60000
     help
       After this much time with no RX while paired-active, the dongle
@@ -273,9 +270,9 @@ config DONGLE_CHANNEL_HOP_VALIDATE_FAIL_ROLLBACK_MS
     help
       A failed speculative-hop validation is positive evidence that the
       keyboard is not where committed_next pointed — sitting on the full
-      ROLLBACK_SILENCE_MS (default 900 ms) before starting the rollback
-      dwell wastes time when we already know the standard recovery is
-      needed. After validate_work_fn reverts, re-arm the rollback-silence
+      ROLLBACK_SILENCE_MS before starting the rollback dwell wastes time
+      when we already know the standard recovery is needed. After
+      validate_work_fn reverts, re-arm the rollback-silence
       watchdog with this much shorter timeout so the dwell cycle starts
       promptly. Set to 0 to disable (rollback then waits the full
       ROLLBACK_SILENCE_MS).
@@ -307,7 +304,7 @@ config DONGLE_COOP_HOP_PRX_SETUP_BUDGET_MS
 
 config DONGLE_COOP_HOP_COOLDOWN_MS
     int "Cooperative hop: minimum interval between two coop hops (ms)"
-    default 1500
+    default 2500
     range 100 30000
     help
       After a cooperative hop commits on the dongle side, set
@@ -318,18 +315,18 @@ config DONGLE_COOP_HOP_COOLDOWN_MS
 
 config DONGLE_COOP_HOP_QUARANTINE_MS
     int "Cooperative hop: quarantine hold for the channel just left (ms)"
-    default 30000
+    default 120000
     range 100 600000
     help
       Mirrors ZMK_ESB_ENDPOINT_COOP_HOP_QUARANTINE_MS on the dongle
       side. Coop hops fire on transient interference; the full
       CHANNEL_QUARANTINE_MS would over-punish a channel that is about
       to recover. Should match the endpoint value so both sides agree
-      on which channels are eligibCOOP_HOP_HOP_IN_MSle.
+      on which channels are eligible.
 
 config DONGLE_COOP_HOP_VALIDATE_MS
     int "Cooperative-hop validation window (ms)"
-    default 60
+    default 110
     range 50 1000
     help
       After the dongle commits a coop hop, it waits this long for any
@@ -337,12 +334,13 @@ config DONGLE_COOP_HOP_VALIDATE_MS
       endpoint joined; the deferred old-channel quarantine then fires.
       No RX means the endpoint missed our ACCEPT ACK and stayed on the
       old channel — the dongle reverts to the old channel directly,
-      avoiding the ~3.4 s rollback-dwell blackout. Sizing: endpoint
-      first post-hop PROPOSAL lands at ≈ COOP_HOP_HOP_IN_MS +
+      avoiding the rollback-dwell blackout. Sizing: endpoint first
+      post-hop PROPOSAL lands at ≈ COOP_HOP_HOP_IN_MS +
       ZMK_ESB_ENDPOINT_CHANNEL_HOP_POST_QUIET_MS after OFFER RX, then
-      every CHANNEL_HOP_POST_BURST_INTERVAL_MS. 160 ms gives ~5
-      PROPOSAL chances. Must be ≤ CHANNEL_HOP_ROLLBACK_SILENCE_MS so
-      the validate path always preempts the rollback path.
+      every CHANNEL_HOP_POST_BURST_INTERVAL_MS; this window must span
+      enough of those intervals to catch at least one PROPOSAL. Must be
+      ≤ CHANNEL_HOP_ROLLBACK_SILENCE_MS so the validate path always
+      preempts the rollback path.
 
 config DONGLE_CHANNEL_PEEK_IDLE
     bool "Periodically peek at default channel while peer is idle"

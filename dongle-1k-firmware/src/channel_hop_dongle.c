@@ -43,6 +43,19 @@ BUILD_ASSERT(CONFIG_DONGLE_CHANNEL_PEEK_IDLE_DWELL_MS <
 static struct quarantine_state m_quarantine;
 static uint8_t m_committed_next = CHANNEL_HOP_INVALID;
 
+/* Set when the most recent PROPOSAL reported the endpoint on the dongle's
+ * current channel (p->current == our channel): positive proof the peer is
+ * here, not gone. Grants the silence watchdog one grace deferral before it
+ * speculatively hops to committed_next. committed_next is only a
+ * pre-negotiated "where we'd go IF we hop", and the endpoint hops solely on
+ * its own TX failures — so a brief gap in its PROPOSAL stream is not evidence
+ * it left. Without the grace, an active-but-quiet endpoint gets chased off a
+ * perfectly good channel every RX_SILENCE_MS, and the resulting validate-fail
+ * → committed_next clear → REQUEST loop never converges. Re-set true by every
+ * co-located PROPOSAL, so a genuine departure (PROPOSALs stop) burns the one
+ * grace on the next watchdog and the hop fires on the one after. */
+static bool m_peer_colocated;
+
 /* Armed only while paired AND peer is known-active. ESB_PKT_IDLE flips
  * peer_idle to true and cancels the watchdog; any other RX flips it back
  * to false and reschedules. Start with peer_idle=true so we do not hop
@@ -177,6 +190,21 @@ static void hop_work_fn(struct k_work *w) {
          * degraded. */
     }
 #endif
+
+    if (m_peer_colocated) {
+        /* The endpoint affirmed it is still on this channel more recently
+         * than it has fallen silent. Don't chase committed_next yet — give
+         * it one more RX_SILENCE_MS to either keep talking here (which
+         * re-arms this grace) or go genuinely silent (which leaves the flag
+         * clear so the next watchdog fires the hop). committed_next is left
+         * intact for that next evaluation. */
+        m_peer_colocated = false;
+        k_work_reschedule(&m_silence_work,
+                          K_MSEC(CONFIG_DONGLE_CHANNEL_HOP_RX_SILENCE_MS));
+        LOG_INF("silence watchdog: peer affirmed co-located on %u, deferring hop",
+                current);
+        return;
+    }
 
     /* Speculative hop: do NOT quarantine yet — if RX resumes we confirm,
      * otherwise we revert. */
@@ -841,6 +869,7 @@ void channel_hop_dongle_init(uint8_t initial_channel) {
     ARG_UNUSED(initial_channel);
     quarantine_reset(&m_quarantine);
     m_committed_next   = CHANNEL_HOP_INVALID;
+    m_peer_colocated   = false;
     m_speculative_prev = CHANNEL_HOP_INVALID;
     m_speculative_target = CHANNEL_HOP_INVALID;
     m_spec_cooldown_until = 0;
@@ -873,6 +902,7 @@ void channel_hop_dongle_set_paired(bool paired) {
     if (!paired) {
         m_peer_idle = true;
         m_committed_next = CHANNEL_HOP_INVALID;
+        m_peer_colocated = false;
         /* If we were mid-speculative-hop when unpairing, don't bother
          * reverting — the link is tearing down anyway. */
         m_speculative_prev = CHANNEL_HOP_INVALID;
@@ -971,6 +1001,11 @@ void channel_hop_dongle_on_rx_proposal(const uint8_t *data, uint8_t len) {
     }
 
     const uint8_t current = esb_prx_get_channel();
+
+    /* The endpoint stamps every PROPOSAL with the channel it is currently on.
+     * Matching ours means it is co-located — arm the silence-watchdog grace. */
+    m_peer_colocated = (p->current == current);
+
     uint8_t agreed;
     bool accepted;
 
