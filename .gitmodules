@@ -75,3 +75,6 @@
 [submodule "zmk-shell-relay-core"]
 	path = zmk-shell-relay-core
 	url = https://github.com/efogdev/zmk-shell-relay-core.git
+[submodule "zmk-paw3950-driver"]
+	path = zmk-paw3950-driver
+	url = https://github.com/efogdev/zmk-paw3950-driver.git
