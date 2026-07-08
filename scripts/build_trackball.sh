@@ -16,6 +16,7 @@ add_module() {
 add_module "endgame-trackball-config"
 add_module "zmk-pmw3610-driver"
 add_module "zmk-paw3395-driver"
+add_module "zmk-paw3950-driver"
 add_module "zmk-pointer-2s-mixer"
 add_module "zmk-axis-clamper"
 add_module "zmk-report-rate-limit"
